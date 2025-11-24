@@ -1,0 +1,2135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AQI NCR - Policy Maker Dashboard</title>
+    <meta name="description" content="Data-driven insights for effective air quality interventions in Delhi-NCR">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <!-- Animate.css for smooth animations -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
+    <style>
+        :root {
+            --primary: #0d6efd;
+            --secondary: #6c757d;
+            --success: #198754;
+            --info: #0dcaf0;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --govt-blue: #1e3a8a;
+            --govt-dark: #0f172a;
+            --transition-speed: 0.3s;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        /* ===== LOADING ANIMATIONS ===== */
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        
+        .loader-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--govt-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        .loader-text {
+            font-size: 1.2rem;
+            color: var(--govt-blue);
+            font-weight: 500;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* ===== MODERN HEADER ===== */
+        .app-header {
+            background: linear-gradient(135deg, var(--govt-blue) 0%, var(--govt-dark) 100%);
+            color: white;
+            padding: 15px 25px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* ===== DASHBOARD CARDS ===== */
+        .dashboard-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            margin-bottom: 25px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+        
+        .dashboard-card:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(135deg, var(--govt-blue) 0%, var(--govt-dark) 100%);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.18);
+        }
+        
+        .dashboard-card:hover:before {
+            transform: scaleX(1);
+        }
+        
+        .card-header {
+            padding: 20px 25px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .card-body {
+            padding: 25px;
+        }
+        
+        /* ===== MAP CONTAINERS ===== */
+        .map-container {
+            height: 400px;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        /* ===== AUTHENTICATION STYLES ===== */
+        .auth-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.2);
+            overflow: hidden;
+            margin: 80px auto;
+            max-width: 480px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(15px);
+            animation: fadeInUp 0.8s ease;
+        }
+        
+        .auth-header {
+            background: linear-gradient(135deg, var(--govt-blue) 0%, var(--govt-dark) 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .auth-content {
+            padding: 35px;
+        }
+        
+        /* ===== REAL-TIME INDICATOR ===== */
+        .real-time-indicator {
+            display: inline-flex;
+            align-items: center;
+            background: var(--success);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-left: 10px;
+            box-shadow: 0 4px 15px rgba(25, 135, 84, 0.3);
+            animation: pulse 2s infinite;
+        }
+        
+        .real-time-indicator::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        /* ===== STATUS BADGES ===== */
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .status-pending { background: #6c757d; color: white; }
+        .status-in-progress { background: #0dcaf0; color: black; }
+        .status-resolved { background: #198754; color: white; }
+        .status-rejected { background: #dc3545; color: white; }
+        
+        /* ===== POLICY CARDS ===== */
+        .policy-card {
+            transition: all 0.3s ease;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .policy-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+        }
+        
+        .effectiveness-meter {
+            height: 10px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            overflow: hidden;
+            margin: 12px 0;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .effectiveness-fill {
+            height: 100%;
+            border-radius: 5px;
+            transition: width 1s ease;
+        }
+        
+        /* ===== TABLE STYLES ===== */
+        .complaint-table {
+            font-size: 0.9rem;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .complaint-table th {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            font-weight: 600;
+            border: none;
+            padding: 15px 12px;
+        }
+        
+        .complaint-table td {
+            padding: 12px;
+            vertical-align: middle;
+            border-color: rgba(0,0,0,0.05);
+        }
+        
+        /* ===== ALERT STYLES ===== */
+        .alert-critical { 
+            border-left: 4px solid #dc3545;
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.05) 0%, rgba(220, 53, 69, 0.02) 100%);
+        }
+        .alert-high { 
+            border-left: 4px solid #fd7e14;
+            background: linear-gradient(135deg, rgba(253, 126, 20, 0.05) 0%, rgba(253, 126, 20, 0.02) 100%);
+        }
+        .alert-medium { 
+            border-left: 4px solid #ffc107;
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.05) 0%, rgba(255, 193, 7, 0.02) 100%);
+        }
+        
+        /* ===== CUSTOM BUTTONS ===== */
+        .btn-govt {
+            background: linear-gradient(135deg, var(--govt-blue) 0%, var(--govt-dark) 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+        }
+        
+        .btn-govt:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.4);
+            color: white;
+        }
+        
+        /* ===== ANIMATIONS ===== */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .animate-fade-in {
+            animation: fadeInUp 0.6s ease;
+        }
+        
+        /* ===== CUSTOM ALERTS ===== */
+        .custom-alert {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        /* ===== METRIC CARDS ===== */
+        .metric-card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+        }
+        
+        /* ===== RESPONSIVE DESIGN ===== */
+        @media (max-width: 768px) {
+            .auth-container {
+                margin: 40px auto;
+                max-width: 90%;
+            }
+            
+            .card-body {
+                padding: 20px;
+            }
+            
+            .app-header {
+                padding: 12px 20px;
+            }
+            
+            .map-container {
+                height: 300px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .auth-container {
+                margin: 20px auto;
+            }
+            
+            .card-body {
+                padding: 15px;
+            }
+            
+            .dashboard-card {
+                margin-bottom: 15px;
+            }
+        }
+        
+        /* ===== SCROLLBAR STYLING ===== */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--govt-blue);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--govt-dark);
+        }
+        
+        /* ===== INTERVENTION CHART STYLES ===== */
+        .intervention-chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+        
+        /* ===== FILTER CONTROLS ===== */
+        .filter-controls {
+            background: rgba(248, 249, 250, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* ===== AI RECOMMENDATION CARDS ===== */
+        .ai-recommendation {
+            border-left: 4px solid;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .ai-recommendation:hover {
+            transform: translateX(5px);
+        }
+        
+        .ai-recommendation.high {
+            border-left-color: var(--danger);
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.05) 0%, transparent 100%);
+        }
+        
+        .ai-recommendation.medium {
+            border-left-color: var(--warning);
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.05) 0%, transparent 100%);
+        }
+        
+        .ai-recommendation.low {
+            border-left-color: var(--info);
+            background: linear-gradient(135deg, rgba(13, 202, 240, 0.05) 0%, transparent 100%);
+        }
+    </style>
+</head>
+<body>
+    <!-- ===== LOADING OVERLAY ===== -->
+    <div class="loader-overlay" id="globalLoader">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">Loading Policy Dashboard...</div>
+    </div>
+
+    <!-- ===== AUTHENTICATION SECTION ===== -->
+    <div id="auth-section">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-10 col-lg-8">
+                    <div class="auth-container">
+                        <div class="auth-header">
+                            <h1><i class="fas fa-shield-alt me-2"></i>AQI NCR Policy Dashboard</h1>
+                            <p class="mb-0">Authorized access for government officials</p>
+                        </div>
+                        
+                        <div class="auth-content">
+                            <h3 class="text-center mb-4">Policy Maker Login</h3>
+                            
+                            <div class="alert alert-warning custom-alert">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Restricted Access:</strong> Department credentials required
+                            </div>
+                            
+                            <form id="loginForm">
+                                <div class="mb-4">
+                                    <label for="departmentId" class="form-label">Department ID</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light"><i class="fas fa-building text-primary"></i></span>
+                                        <input type="text" class="form-control" id="departmentId" placeholder="Enter department ID" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label for="password" class="form-label">Password</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light"><i class="fas fa-lock text-primary"></i></span>
+                                        <input type="password" class="form-control" id="password" placeholder="Enter password" required>
+                                        <span class="input-group-text bg-light password-toggle" onclick="togglePassword('password')">
+                                            <i class="fas fa-eye"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4 form-check">
+                                    <input type="checkbox" class="form-check-input" id="rememberMe">
+                                    <label class="form-check-label" for="rememberMe">Remember credentials</label>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-govt btn-lg">
+                                        <span id="login-spinner" class="spinner-border spinner-border-sm" style="display: none;"></span>
+                                        Access Dashboard
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <div class="mt-4 text-center">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Authorized personnel only. Unauthorized access is prohibited.
+                                </small>
+                            </div>
+                            
+                            <div class="mt-3 text-center">
+                                <small class="text-muted">
+                                    <strong>Demo Credentials:</strong> policymaker / govt123
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== DASHBOARD SECTION ===== -->
+    <div id="dashboard-section" style="display: none;">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h1 class="h3 mb-0">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            AQI NCR - Policy Dashboard
+                        </h1>
+                        <small class="text-light">Data-driven insights for effective interventions</small>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <div class="d-flex align-items-center justify-content-end gap-3">
+                            <span class="text-light" id="userDepartment">
+                                <i class="fas fa-user-tie me-1"></i>
+                                <span id="departmentName">Policy Department</span>
+                            </span>
+                            <span class="real-time-indicator">Live Data</span>
+                            <button class="btn btn-outline-light btn-sm" id="logoutBtn">
+                                <i class="fas fa-sign-out-alt me-1"></i>Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="container-fluid py-4">
+            <!-- Header Section -->
+            <div class="row mb-4 animate-fade-in">
+                <div class="col-12 text-center">
+                    <h1 class="display-5 fw-bold text-dark mb-3">Policy Makers Dashboard</h1>
+                    <p class="lead text-muted">Data-driven insights for effective air quality interventions</p>
+                    <div class="d-flex justify-content-center align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            Last updated: <span id="lastUpdated">Loading...</span>
+                        </small>
+                        <small class="text-muted ms-3">
+                            <i class="fas fa-sync-alt me-1"></i>
+                            Auto-refresh every 5 minutes
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="row mb-5 animate-fade-in">
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="metric-card text-white bg-danger">
+                        <div class="card-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                            <h5>Critical Stations</h5>
+                            <div class="h2 fw-bold" id="criticalStations">0</div>
+                            <small>AQI > 300</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="metric-card text-white bg-warning">
+                        <div class="card-body text-center py-4">
+                            <i class="fas fa-fire fa-2x mb-3"></i>
+                            <h5>Active Complaints</h5>
+                            <div class="h2 fw-bold" id="activeComplaints">0</div>
+                            <small>Last 24 hours</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="metric-card text-white bg-info">
+                        <div class="card-body text-center py-4">
+                            <i class="fas fa-chart-line fa-2x mb-3"></i>
+                            <h5>Trend</h5>
+                            <div class="h2 fw-bold" id="aqiTrend">--</div>
+                            <small>vs yesterday</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="metric-card text-white bg-success">
+                        <div class="card-body text-center py-4">
+                            <i class="fas fa-satellite fa-2x mb-3"></i>
+                            <h5>Monitoring Status</h5>
+                            <div class="h4 fw-bold mt-2">ACTIVE</div>
+                            <small>All systems operational</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regional AQI Overview -->
+            <div class="row mb-5 animate-fade-in">
+                <div class="col-12">
+                    <div class="dashboard-card">
+                        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                            <h4 class="mb-0"><i class="fas fa-map me-2"></i>Regional AQI Overview</h4>
+                            <div class="btn-group mt-2 mt-md-0" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm active" data-region="all">All Regions</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-region="central">Central Delhi</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-region="west">West Delhi</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-region="east">East Delhi</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-region="gurugram">Gurugram</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-region="noida">Noida</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8 mb-4 mb-md-0">
+                                    <div id="regionalMap" class="map-container">
+                                        <div class="d-flex justify-content-center align-items-center h-100">
+                                            <div class="text-center">
+                                                <div class="spinner-border text-primary mb-3"></div>
+                                                <p>Loading regional map...</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Region</th>
+                                                    <th>AQI</th>
+                                                    <th>Primary Pollutant</th>
+                                                    <th>Trend</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="regionalTable">
+                                                <tr>
+                                                    <td colspan="4" class="text-center py-4">
+                                                        <div class="spinner-border spinner-border-sm text-primary"></div>
+                                                        <p class="mt-2 mb-0">Loading regional data...</p>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Source Contribution Analysis -->
+            <div class="row mb-5 animate-fade-in">
+                <div class="col-lg-6 mb-4">
+                    <div class="dashboard-card h-100">
+                        <div class="card-header">
+                            <h4 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Pollution Source Contribution</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="intervention-chart-container">
+                                <canvas id="sourceChart"></canvas>
+                            </div>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Based on satellite data and ground monitoring
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <div class="dashboard-card h-100">
+                        <div class="card-header">
+                            <h4 class="mb-0"><i class="fas fa-map-marked-alt me-2"></i>Pollution Source Hotspots</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="hotspotMap" class="map-container">
+                                <div class="d-flex justify-content-center align-items-center h-100">
+                                    <div class="text-center">
+                                        <div class="spinner-border text-primary mb-3"></div>
+                                        <p>Loading hotspot map...</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-mouse-pointer me-1"></i>
+                                    Click on source contribution chart to view hotspots
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Intervention Effectiveness -->
+            <div class="row mb-5 animate-fade-in">
+                <div class="col-12">
+                    <div class="dashboard-card">
+                        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                            <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Intervention Effectiveness</h4>
+                            <div class="btn-group mt-2 mt-md-0" role="group">
+                                <input type="radio" class="btn-check" name="interventionTimeframe" id="interventionToday" autocomplete="off" checked>
+                                <label class="btn btn-outline-primary btn-sm" for="interventionToday">Recent</label>
+                                <input type="radio" class="btn-check" name="interventionTimeframe" id="interventionMonth" autocomplete="off">
+                                <label class="btn btn-outline-primary btn-sm" for="interventionMonth">Monthly</label>
+                                <input type="radio" class="btn-check" name="interventionTimeframe" id="interventionYear" autocomplete="off">
+                                <label class="btn btn-outline-primary btn-sm" for="interventionYear">Yearly</label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="intervention-chart-container">
+                                <canvas id="interventionChart"></canvas>
+                            </div>
+                            <div class="row mt-4">
+                                <div class="col-md-4 mb-3">
+                                    <div class="card policy-card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title text-primary">Odd-Even Vehicle Scheme</h5>
+                                            <p class="card-text text-muted">Implemented Nov 15-30, 2024</p>
+                                            <div class="effectiveness-meter">
+                                                <div class="effectiveness-fill bg-success" style="width: 65%"></div>
+                                            </div>
+                                            <p class="mb-1"><strong>+12% effectiveness</strong></p>
+                                            <p class="mb-0 text-muted small">AQI reduced by 18 points on average</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card policy-card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title text-primary">Construction Ban</h5>
+                                            <p class="card-text text-muted">Implemented during severe AQI days</p>
+                                            <div class="effectiveness-meter">
+                                                <div class="effectiveness-fill bg-warning" style="width: 30%"></div>
+                                            </div>
+                                            <p class="mb-1"><strong>+5% effectiveness</strong></p>
+                                            <p class="mb-0 text-muted small">Limited impact due to exemptions</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card policy-card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title text-primary">Firecracker Ban</h5>
+                                            <p class="card-text text-muted">Diwali season enforcement</p>
+                                            <div class="effectiveness-meter">
+                                                <div class="effectiveness-fill bg-danger" style="width: 15%"></div>
+                                            </div>
+                                            <p class="mb-1"><strong>-8% effectiveness</strong></p>
+                                            <p class="mb-0 text-muted small">Poor compliance in residential areas</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AQI Forecasting & Trends -->
+            <div class="row mb-5 animate-fade-in">
+                <div class="col-lg-8 mb-4">
+                    <div class="dashboard-card h-100">
+                        <div class="card-header">
+                            <h4 class="mb-0"><i class="fas fa-chart-line me-2"></i>AQI Forecasting & Trends</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="intervention-chart-container">
+                                <canvas id="forecastChart"></canvas>
+                            </div>
+                            <div class="row mt-4">
+                                <div class="col-md-4 mb-3">
+                                    <div class="card border-0 bg-light h-100">
+                                        <div class="card-body text-center py-4">
+                                            <h6 class="text-warning">Next 72 hours</h6>
+                                            <div class="h3 text-warning fw-bold">150-180</div>
+                                            <small class="text-muted">Unhealthy for sensitive groups</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card border-0 bg-light h-100">
+                                        <div class="card-body text-center py-4">
+                                            <h6 class="text-info">Next week</h6>
+                                            <div class="h3 text-info fw-bold">120-150</div>
+                                            <small class="text-muted">Possible improvement expected</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card border-0 bg-light h-100">
+                                        <div class="card-body text-center py-4">
+                                            <h6 class="text-success">Monthly outlook</h6>
+                                            <div class="h3 text-success fw-bold">100-130</div>
+                                            <small class="text-muted">Gradual improvement projected</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <h5 class="mb-3">Key Environmental Factors</h5>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <div class="d-flex align-items-start">
+                                            <i class="fas fa-wind text-success fa-lg me-3 mt-1"></i>
+                                            <div>
+                                                <strong class="d-block">Favorable</strong>
+                                                <p class="mb-0 text-muted small">Increasing wind speed from NW direction</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <div class="d-flex align-items-start">
+                                            <i class="fas fa-thermometer-half text-warning fa-lg me-3 mt-1"></i>
+                                            <div>
+                                                <strong class="d-block">Neutral</strong>
+                                                <p class="mb-0 text-muted small">Stable temperature patterns continuing</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <div class="d-flex align-items-start">
+                                            <i class="fas fa-exclamation-triangle text-danger fa-lg me-3 mt-1"></i>
+                                            <div>
+                                                <strong class="d-block">Concerning</strong>
+                                                <p class="mb-0 text-muted small">High fire count detected in neighboring states</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 mb-4">
+                    <div class="dashboard-card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0"><i class="fas fa-brain me-2"></i>AI Policy Recommendations</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="aiRecommendations">
+                                <div class="text-center py-4">
+                                    <div class="spinner-border text-primary mb-3"></div>
+                                    <p class="mb-0">Loading AI recommendations...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Region-wise Policy Recommendations -->
+            <div class="row mb-5 animate-fade-in">
+                <div class="col-12">
+                    <div class="dashboard-card">
+                        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                            <h4 class="mb-0"><i class="fas fa-map-pin me-2"></i>Region-wise Policy Recommendations</h4>
+                            <div class="d-flex flex-wrap mt-2 mt-md-0">
+                                <input type="text" class="form-control form-control-sm me-2 mb-2 mb-md-0" id="policySearch" placeholder="Search policies..." style="min-width: 200px;">
+                                <select class="form-select form-select-sm" id="regionFilter" style="min-width: 150px;">
+                                    <option value="all">All Regions</option>
+                                    <option value="central">Central Delhi</option>
+                                    <option value="west">West Delhi</option>
+                                    <option value="east">East Delhi</option>
+                                    <option value="gurugram">Gurugram</option>
+                                    <option value="noida">Noida</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row" id="policyRecommendations">
+                                <div class="col-12 text-center py-4">
+                                    <div class="spinner-border text-primary mb-3"></div>
+                                    <p class="mb-0">Loading policy recommendations...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Citizen Complaint Management -->
+            <div class="row mb-5 animate-fade-in">
+                <div class="col-12">
+                    <div class="dashboard-card">
+                        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                            <h4 class="mb-0"><i class="fas fa-comments me-2"></i>Citizen Complaint Management</h4>
+                            <div class="mt-2 mt-md-0">
+                                <span class="badge bg-danger me-2">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Pending: <span id="pendingCount">0</span>
+                                </span>
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>
+                                    Resolved: <span id="resolvedCount">0</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8 mb-4 mb-md-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover complaint-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Complaint ID</th>
+                                                    <th>Type</th>
+                                                    <th>Region</th>
+                                                    <th>Priority</th>
+                                                    <th>Status</th>
+                                                    <th>Date</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="complaintsTable">
+                                                <tr>
+                                                    <td colspan="7" class="text-center py-4">
+                                                        <div class="spinner-border spinner-border-sm text-primary"></div>
+                                                        <p class="mt-2 mb-0">Loading complaints...</p>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-0 bg-light h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title mb-4">
+                                                <i class="fas fa-user-tie me-2"></i>
+                                                Department Actions
+                                            </h5>
+                                            <form id="complaintActionForm">
+                                                <div class="mb-3">
+                                                    <label for="complaintId" class="form-label">Complaint ID</label>
+                                                    <input type="text" class="form-control" id="complaintId" placeholder="Enter CID" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="actionStatus" class="form-label">Update Status</label>
+                                                    <select class="form-select" id="actionStatus" required>
+                                                        <option value="pending">Pending</option>
+                                                        <option value="in-progress">In Progress</option>
+                                                        <option value="resolved">Resolved</option>
+                                                        <option value="rejected">Rejected</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="actionNotes" class="form-label">Officer Notes</label>
+                                                    <textarea class="form-control" id="actionNotes" rows="3" placeholder="Add investigation notes..." required></textarea>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="officerAssigned" class="form-label">Officer Assigned</label>
+                                                    <input type="text" class="form-control" id="officerAssigned" placeholder="Enter officer name">
+                                                </div>
+                                                <button type="submit" class="btn btn-govt w-100 mb-2" id="updateComplaint">
+                                                    <i class="fas fa-save me-2"></i>Update Complaint
+                                                </button>
+                                                <button type="button" class="btn btn-outline-primary w-100" id="sendNotification">
+                                                    <i class="fas fa-bell me-2"></i>Notify Citizen
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monitoring Systems Status -->
+            <div class="row mb-5 animate-fade-in">
+                <div class="col-12">
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h4 class="mb-0"><i class="fas fa-server me-2"></i>Monitoring Systems Status</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center p-3 bg-success bg-opacity-10 rounded border">
+                                        <i class="fas fa-satellite fa-2x text-success me-3"></i>
+                                        <div>
+                                            <h6 class="mb-1">NASA MODIS</h6>
+                                            <span class="badge bg-success">Active</span>
+                                            <small class="d-block text-muted">Fire detection system</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center p-3 bg-success bg-opacity-10 rounded border">
+                                        <i class="fas fa-map-marker-alt fa-2x text-success me-3"></i>
+                                        <div>
+                                            <h6 class="mb-1">CPCB Stations</h6>
+                                            <span class="badge bg-success">38/40 Online</span>
+                                            <small class="d-block text-muted">Ground monitoring network</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center p-3 bg-success bg-opacity-10 rounded border">
+                                        <i class="fas fa-cloud fa-2x text-success me-3"></i>
+                                        <div>
+                                            <h6 class="mb-1">Weather Integration</h6>
+                                            <span class="badge bg-success">Synced</span>
+                                            <small class="d-block text-muted">Real-time weather data</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-dark text-white py-4 mt-5">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-shield-alt me-2"></i>AQI NCR Policy Dashboard</h5>
+                        <p class="mb-0">AI-powered air quality monitoring for effective governance</p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <p class="mb-0">Built for Smart India Hackathon 2025</p>
+                        <small class="text-muted">Data sources: NASA FIRMS, OpenWeather, AQICN, CPCB</small>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- ===== EXTERNAL LIBRARIES ===== -->
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Leaflet JS for maps -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // ===== CONFIGURATION =====
+        // Replace with your deployed Google Apps Script Web App URL
+        const BACKEND_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+        
+        // ===== GLOBAL APPLICATION STATE =====
+        let currentUser = null;
+        let authToken = null;
+        let dashboardRefreshInterval = null;
+        let regionalMap = null;
+        let hotspotMap = null;
+        let charts = {};
+        
+        // ===== UTILITY FUNCTIONS =====
+        
+        /**
+         * Toggle password visibility in input fields
+         * @param {string} inputId - The ID of the password input field
+         */
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.parentElement.querySelector('.password-toggle i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        
+        /**
+         * Show alert message to user
+         * @param {string} message - The message to display
+         * @param {string} type - The type of alert (success, error, warning, info)
+         */
+        function showAlert(message, type = 'info') {
+            // Remove existing alerts
+            const existingAlerts = document.querySelectorAll('.custom-alert');
+            existingAlerts.forEach(alert => alert.remove());
+            
+            const alertClass = {
+                'success': 'alert-success',
+                'error': 'alert-danger',
+                'warning': 'alert-warning',
+                'info': 'alert-info'
+            }[type] || 'alert-info';
+            
+            const alertHtml = `
+                <div class="alert ${alertClass} alert-dismissible fade show custom-alert" role="alert">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            document.querySelector('.container-fluid').insertAdjacentHTML('afterbegin', alertHtml);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alert = document.querySelector('.custom-alert');
+                if (alert) {
+                    alert.remove();
+                }
+            }, 5000);
+        }
+        
+        /**
+         * Show loading spinner in a button
+         * @param {string} elementId - The ID of the button element
+         */
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.style.display = 'inline-block';
+            }
+        }
+        
+        /**
+         * Hide loading spinner in a button
+         * @param {string} elementId - The ID of the button element
+         */
+        function hideLoading(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.style.display = 'none';
+            }
+        }
+        
+        // ===== API SERVICE CLASS =====
+        
+        class ApiService {
+            /**
+             * Make a request to the backend API
+             * @param {string} endpoint - The API endpoint
+             * @param {Object} options - Request options
+             * @returns {Promise} - The response data
+             */
+            static async request(endpoint, options = {}) {
+                const url = `${BACKEND_URL}/${endpoint}`;
+                const config = {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                };
+                
+                if (authToken) {
+                    config.headers['Authorization'] = `Bearer ${authToken}`;
+                }
+                
+                try {
+                    const response = await fetch(url, config);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    return data;
+                } catch (error) {
+                    console.error('API Request failed:', error);
+                    throw error;
+                }
+            }
+            
+            /**
+             * User login for policymakers
+             * @param {Object} credentials - Login credentials
+             * @returns {Promise} - Login result
+             */
+            static async login(credentials) {
+                return this.request('auth-login', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        ...credentials,
+                        user_type: 'policymaker'
+                    })
+                });
+            }
+            
+            /**
+             * Get policymaker statistics
+             * @returns {Promise} - Statistics data
+             */
+            static async getPolicymakerStats() {
+                return this.request('policymaker-stats');
+            }
+            
+            /**
+             * Get dashboard data
+             * @returns {Promise} - Dashboard data
+             */
+            static async getDashboardData() {
+                return this.request('dashboard');
+            }
+            
+            /**
+             * Get all complaints for policymakers
+             * @returns {Promise} - Complaints data
+             */
+            static async getComplaints() {
+                return this.request('policymaker-complaints');
+            }
+            
+            /**
+             * Update complaint status
+             * @param {string} complaintId - Complaint ID
+             * @param {string} status - New status
+             * @param {string} notes - Officer notes
+             * @param {string} officerAssigned - Officer name
+             * @returns {Promise} - Update result
+             */
+            static async updateComplaintStatus(complaintId, status, notes, officerAssigned) {
+                return this.request('update-complaint', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        complaint_id: complaintId,
+                        status: status,
+                        notes: notes,
+                        officer_assigned: officerAssigned
+                    })
+                });
+            }
+            
+            /**
+             * Get policy recommendations
+             * @returns {Promise} - Policy recommendations
+             */
+            static async getPolicyRecommendations() {
+                return this.request('policy-recommendations');
+            }
+        }
+        
+        // ===== AUTHENTICATION MANAGEMENT =====
+        
+        class AuthManager {
+            /**
+             * Login user
+             * @param {string} departmentId - Department ID
+             * @param {string} password - Password
+             * @returns {Object} - Login result
+             */
+            static async login(departmentId, password) {
+                try {
+                    const result = await ApiService.login({ 
+                        username: departmentId, 
+                        password: password 
+                    });
+                    
+                    if (result.success) {
+                        currentUser = result.user;
+                        authToken = result.access_token;
+                        
+                        // Store in localStorage for persistence
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        localStorage.setItem('authToken', authToken);
+                        localStorage.setItem('userType', 'policymaker');
+                        
+                        return { success: true, user: currentUser };
+                    } else {
+                        return { success: false, error: result.detail || 'Login failed' };
+                    }
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            }
+            
+            /**
+             * Logout user
+             */
+            static logout() {
+                currentUser = null;
+                authToken = null;
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('userType');
+                
+                // Clear refresh interval
+                if (dashboardRefreshInterval) {
+                    clearInterval(dashboardRefreshInterval);
+                }
+                
+                // Show auth section, hide dashboard
+                document.getElementById('dashboard-section').style.display = 'none';
+                document.getElementById('auth-section').style.display = 'block';
+                document.getElementById('loginForm').reset();
+                
+                showAlert('You have been logged out successfully', 'info');
+            }
+            
+            /**
+             * Check for stored authentication
+             * @returns {boolean} - True if user is authenticated
+             */
+            static checkStoredAuth() {
+                const storedUser = localStorage.getItem('currentUser');
+                const storedToken = localStorage.getItem('authToken');
+                const userType = localStorage.getItem('userType');
+                
+                if (storedUser && storedToken && userType === 'policymaker') {
+                    currentUser = JSON.parse(storedUser);
+                    authToken = storedToken;
+                    return true;
+                }
+                return false;
+            }
+        }
+        
+        // ===== DASHBOARD MANAGEMENT =====
+        
+        class DashboardManager {
+            /**
+             * Load and update dashboard data
+             */
+            static async loadDashboardData() {
+                try {
+                    const [statsData, dashboardData, complaintsData, policyData] = await Promise.all([
+                        ApiService.getPolicymakerStats(),
+                        ApiService.getDashboardData(),
+                        ApiService.getComplaints(),
+                        ApiService.getPolicyRecommendations()
+                    ]);
+
+                    if (statsData.success) {
+                        this.updateKeyMetrics(statsData);
+                        this.updateHeatmap(statsData.heatmap_data);
+                        this.updateSourceAttribution(statsData.source_attribution);
+                    }
+
+                    if (dashboardData.success) {
+                        this.updateRegionalData(dashboardData);
+                        this.updateForecastChart(dashboardData.forecast);
+                    }
+
+                    if (complaintsData.success) {
+                        this.updateComplaintsTable(complaintsData.complaints);
+                    }
+
+                    if (policyData.success) {
+                        this.updatePolicyRecommendations(policyData.recommendations);
+                    }
+
+                    document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+                    
+                } catch (error) {
+                    console.error('Error loading dashboard data:', error);
+                    showAlert('Failed to load dashboard data. Please try again.', 'error');
+                }
+            }
+            
+            /**
+             * Update key metrics display
+             * @param {Object} data - Statistics data
+             */
+            static updateKeyMetrics(data) {
+                // Update critical stations count
+                const criticalCount = data.heatmap_data ? data.heatmap_data.filter(item => item.intensity > 3).length : 0;
+                document.getElementById('criticalStations').textContent = criticalCount;
+
+                // Update active complaints
+                document.getElementById('activeComplaints').textContent = data.total_complaints || 0;
+
+                // Update trend (this would come from actual trend data)
+                document.getElementById('aqiTrend').textContent = '-2%';
+            }
+            
+            /**
+             * Update regional data display
+             * @param {Object} data - Dashboard data
+             */
+            static updateRegionalData(data) {
+                const tableBody = document.getElementById('regionalTable');
+                
+                // Sample regional data - in real implementation, this would come from backend
+                const regionalData = [
+                    { region: 'Central Delhi', aqi: 168, pollutant: 'PM2.5', trend: 'increasing' },
+                    { region: 'West Delhi', aqi: 152, pollutant: 'PM2.5', trend: 'decreasing' },
+                    { region: 'East Delhi', aqi: 174, pollutant: 'PM10', trend: 'increasing' },
+                    { region: 'Gurugram', aqi: 162, pollutant: 'PM2.5', trend: 'stable' },
+                    { region: 'Noida', aqi: 158, pollutant: 'PM2.5', trend: 'decreasing' }
+                ];
+                
+                let tableHtml = '';
+                regionalData.forEach(region => {
+                    const trendIcon = region.trend === 'increasing' ? 'fa-arrow-up text-danger' :
+                                    region.trend === 'decreasing' ? 'fa-arrow-down text-success' : 
+                                    'fa-minus text-warning';
+                    
+                    tableHtml += `
+                        <tr>
+                            <td><strong>${region.region}</strong></td>
+                            <td><span class="badge bg-secondary">${region.aqi}</span></td>
+                            <td>${region.pollutant}</td>
+                            <td><i class="fas ${trendIcon}"></i> ${region.trend}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableBody.innerHTML = tableHtml;
+                
+                // Initialize regional map if not already done
+                if (!regionalMap) {
+                    this.initializeRegionalMap();
+                }
+            }
+            
+            /**
+             * Update heatmap with complaint data
+             * @param {Array} heatmapData - Heatmap data points
+             */
+            static updateHeatmap(heatmapData) {
+                if (!regionalMap) {
+                    this.initializeRegionalMap();
+                }
+
+                // Clear existing markers
+                regionalMap.eachLayer(layer => {
+                    if (layer instanceof L.CircleMarker) {
+                        regionalMap.removeLayer(layer);
+                    }
+                });
+
+                // Add heatmap markers
+                if (heatmapData && heatmapData.length > 0) {
+                    heatmapData.forEach(point => {
+                        const color = point.intensity > 3 ? 'red' :
+                                    point.intensity > 2 ? 'orange' :
+                                    point.intensity > 1 ? 'yellow' : 'green';
+                        
+                        L.circleMarker([point.lat, point.lng], {
+                            color: color,
+                            fillColor: color,
+                            fillOpacity: 0.7,
+                            radius: 8
+                        }).addTo(regionalMap).bindPopup(`
+                            <strong>Complaint Hotspot</strong><br>
+                            Type: ${point.type}<br>
+                            Intensity: ${point.intensity}
+                        `);
+                    });
+                }
+            }
+            
+            /**
+             * Update pollution source attribution
+             * @param {Object} sources - Source data
+             */
+            static updateSourceAttribution(sources) {
+                this.updateSourceChart(sources);
+                this.updateHotspotMap(sources);
+            }
+            
+            /**
+             * Update source chart with new data
+             * @param {Object} sources - Source data
+             */
+            static updateSourceChart(sources) {
+                const ctx = document.getElementById('sourceChart').getContext('2d');
+                
+                // Destroy existing chart if it exists
+                if (charts.sourceChart) {
+                    charts.sourceChart.destroy();
+                }
+                
+                const labels = Object.keys(sources).map(source => 
+                    source.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                );
+                const data = Object.values(sources);
+                
+                charts.sourceChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: [
+                                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    usePointStyle: true
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.label}: ${context.raw}%`;
+                                    }
+                                }
+                            }
+                        },
+                        onClick: (evt, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                const source = Object.keys(sources)[index];
+                                DashboardManager.filterHotspotsBySource(source);
+                            }
+                        }
+                    }
+                });
+            }
+            
+            /**
+             * Update hotspot map with source data
+             * @param {Object} sources - Source data
+             */
+            static updateHotspotMap(sources) {
+                if (!hotspotMap) {
+                    this.initializeHotspotMap();
+                }
+
+                // This would be populated based on the selected source
+                // For demo, we'll show some sample hotspots
+                const sampleHotspots = [
+                    { name: 'Industrial Area', lat: 28.6562, lng: 77.1000, type: 'industrial', intensity: 'High' },
+                    { name: 'Construction Site', lat: 28.6219, lng: 77.3000, type: 'construction', intensity: 'Medium' },
+                    { name: 'Traffic Corridor', lat: 28.6139, lng: 77.2090, type: 'vehicular', intensity: 'High' }
+                ];
+
+                // Clear existing markers
+                hotspotMap.eachLayer(layer => {
+                    if (layer instanceof L.Marker) {
+                        hotspotMap.removeLayer(layer);
+                    }
+                });
+
+                // Add sample hotspots
+                sampleHotspots.forEach(hotspot => {
+                    const color = hotspot.intensity === 'High' ? 'red' : 
+                                 hotspot.intensity === 'Medium' ? 'orange' : 'yellow';
+                    
+                    L.circleMarker([hotspot.lat, hotspot.lng], {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.7,
+                        radius: 10
+                    }).addTo(hotspotMap).bindPopup(`
+                        <strong>${hotspot.name}</strong><br>
+                        Type: ${hotspot.type}<br>
+                        Intensity: ${hotspot.intensity}
+                    `);
+                });
+            }
+            
+            /**
+             * Filter hotspots by source type
+             * @param {string} source - Source type to filter by
+             */
+            static filterHotspotsBySource(source) {
+                // This would filter hotspots based on the selected source
+                showAlert(`Showing hotspots for: ${source.replace('_', ' ')}`, 'info');
+            }
+            
+            /**
+             * Update forecast chart
+             * @param {Array} forecast - Forecast data
+             */
+            static updateForecastChart(forecast) {
+                const ctx = document.getElementById('forecastChart').getContext('2d');
+                
+                // Destroy existing chart if it exists
+                if (charts.forecastChart) {
+                    charts.forecastChart.destroy();
+                }
+                
+                const labels = forecast ? forecast.slice(0, 24).map((_, index) => {
+                    const date = new Date();
+                    date.setHours(date.getHours() + index);
+                    return date.getHours() + 'h';
+                }) : Array.from({length: 24}, (_, i) => i + 'h');
+                
+                const data = forecast ? forecast.slice(0, 24).map(point => point.aqi) : 
+                             Array.from({length: 24}, () => 150 + Math.random() * 50);
+                
+                charts.forecastChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'AQI Forecast',
+                            data: data,
+                            borderColor: '#0d6efd',
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#0d6efd',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: 'AQI'
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            /**
+             * Update complaints table
+             * @param {Array} complaints - Complaints data
+             */
+            static updateComplaintsTable(complaints) {
+                const tableBody = document.getElementById('complaintsTable');
+                
+                if (!complaints || complaints.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-2x mb-3"></i>
+                                <p class="mb-0">No complaints found</p>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                let tableHtml = '';
+                let pendingCount = 0;
+                let resolvedCount = 0;
+
+                complaints.forEach(complaint => {
+                    if (complaint.status === 'pending') pendingCount++;
+                    if (complaint.status === 'resolved') resolvedCount++;
+
+                    const statusClass = `status-${complaint.status.replace(' ', '-')}`;
+                    const priorityClass = complaint.priority === 'high' ? 'alert-high' : 
+                                         complaint.priority === 'critical' ? 'alert-critical' : 'alert-medium';
+                    
+                    tableHtml += `
+                        <tr class="${priorityClass}">
+                            <td><code>${complaint.complaintID}</code></td>
+                            <td>${this.getComplaintTypeDisplay(complaint.type)}</td>
+                            <td>${complaint.region || 'N/A'}</td>
+                            <td>
+                                <span class="badge bg-${complaint.priority === 'critical' ? 'danger' : 
+                                                       complaint.priority === 'high' ? 'warning' : 'info'}">
+                                    ${complaint.priority}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-badge ${statusClass}">${complaint.status}</span>
+                            </td>
+                            <td>${new Date(complaint.submittedAt).toLocaleDateString()}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" onclick="ComplaintManager.viewComplaint('${complaint.complaintID}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('pendingCount').textContent = pendingCount;
+                document.getElementById('resolvedCount').textContent = resolvedCount;
+                tableBody.innerHTML = tableHtml;
+            }
+            
+            /**
+             * Get display name for complaint type
+             * @param {string} type - Complaint type
+             * @returns {string} - Display name
+             */
+            static getComplaintTypeDisplay(type) {
+                const types = {
+                    'construction': 'Illegal Construction',
+                    'stubble': 'Stubble Burning',
+                    'industrial': 'Illegal Industry',
+                    'vehicle': 'Vehicle Pollution',
+                    'waste': 'Waste Burning'
+                };
+                return types[type] || type;
+            }
+            
+            /**
+             * Update policy recommendations
+             * @param {Array} recommendations - Policy recommendations
+             */
+            static updatePolicyRecommendations(recommendations) {
+                this.updateAIRecommendations();
+                this.updateRegionWiseRecommendations(recommendations);
+            }
+            
+            /**
+             * Update AI recommendations display
+             */
+            static updateAIRecommendations() {
+                const recommendations = [
+                    {
+                        title: "Immediate Action Required",
+                        message: "High stubble burning detected in neighboring states. Coordinate with agriculture department for immediate intervention.",
+                        priority: "high",
+                        region: "All Regions"
+                    },
+                    {
+                        title: "Traffic Management Strategy",
+                        message: "Implement odd-even scheme in Central Delhi during peak hours to reduce vehicular emissions.",
+                        priority: "medium",
+                        region: "Central Delhi"
+                    },
+                    {
+                        title: "Construction Regulation",
+                        message: "Enforce stricter dust control measures at construction sites with real-time monitoring.",
+                        priority: "medium",
+                        region: "East Delhi"
+                    }
+                ];
+
+                const container = document.getElementById('aiRecommendations');
+                let html = '';
+
+                recommendations.forEach(rec => {
+                    const priorityClass = rec.priority === 'high' ? 'high' : rec.priority === 'medium' ? 'medium' : 'low';
+                    html += `
+                        <div class="ai-recommendation ${priorityClass} p-3 mb-3">
+                            <h6 class="fw-bold mb-2">${rec.title}</h6>
+                            <p class="mb-2">${rec.message}</p>
+                            <small class="text-muted">
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                Region: ${rec.region}
+                            </small>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            }
+            
+            /**
+             * Update region-wise recommendations
+             * @param {Array} recommendations - Region-wise recommendations
+             */
+            static updateRegionWiseRecommendations(recommendations) {
+                const policies = [
+                    {
+                        name: 'Odd-Even Vehicle Scheme',
+                        region: 'Central Delhi',
+                        status: 'Active',
+                        effectiveness: 12,
+                        impact: 'AQI reduced by 18 points on average during implementation'
+                    },
+                    {
+                        name: 'Construction Ban',
+                        region: 'East Delhi',
+                        status: 'Seasonal',
+                        effectiveness: 5,
+                        impact: 'Limited impact due to exemptions and poor enforcement'
+                    },
+                    {
+                        name: 'Industrial Emission Controls',
+                        region: 'West Delhi',
+                        status: 'Active',
+                        effectiveness: 15,
+                        impact: 'PM2.5 levels reduced by 22% in industrial zones'
+                    }
+                ];
+
+                const container = document.getElementById('policyRecommendations');
+                let html = '';
+
+                policies.forEach(policy => {
+                    const effectivenessClass = policy.effectiveness > 10 ? 'success' :
+                                             policy.effectiveness > 0 ? 'warning' : 'danger';
+                    
+                    html += `
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card policy-card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <h5 class="card-title text-primary">${policy.name}</h5>
+                                        <span class="badge bg-${policy.status === 'Active' ? 'success' : 'warning'}">
+                                            ${policy.status}
+                                        </span>
+                                    </div>
+                                    <p class="card-text text-muted mb-3">
+                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                        <strong>Region:</strong> ${policy.region}
+                                    </p>
+                                    <div class="effectiveness-meter">
+                                        <div class="effectiveness-fill bg-${effectivenessClass}" 
+                                             style="width: ${Math.abs(policy.effectiveness) * 5}%"></div>
+                                    </div>
+                                    <p class="mb-2">
+                                        <strong>${policy.effectiveness >= 0 ? '+' : ''}${policy.effectiveness}% effectiveness</strong>
+                                    </p>
+                                    <p class="mb-0 text-muted small">${policy.impact}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            }
+            
+            /**
+             * Initialize regional map
+             */
+            static initializeRegionalMap() {
+                regionalMap = L.map('regionalMap').setView([28.6139, 77.2090], 10);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(regionalMap);
+            }
+            
+            /**
+             * Initialize hotspot map
+             */
+            static initializeHotspotMap() {
+                hotspotMap = L.map('hotspotMap').setView([28.6139, 77.2090], 10);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(hotspotMap);
+            }
+            
+            /**
+             * Initialize intervention chart
+             */
+            static initializeInterventionChart() {
+                const ctx = document.getElementById('interventionChart').getContext('2d');
+                
+                // Destroy existing chart if it exists
+                if (charts.interventionChart) {
+                    charts.interventionChart.destroy();
+                }
+                
+                charts.interventionChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Odd-Even', 'Construction Ban', 'Firecracker Ban', 'Industrial Controls', 'Green Cover'],
+                        datasets: [{
+                            label: 'Effectiveness (%)',
+                            data: [12, 5, -8, 15, 8],
+                            backgroundColor: [
+                                'rgba(75, 192, 192, 0.7)',
+                                'rgba(255, 206, 86, 0.7)',
+                                'rgba(255, 99, 132, 0.7)',
+                                'rgba(54, 162, 235, 0.7)',
+                                'rgba(153, 102, 255, 0.7)'
+                            ],
+                            borderColor: [
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(153, 102, 255, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Effectiveness (%)'
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        // ===== COMPLAINT MANAGEMENT =====
+        
+        class ComplaintManager {
+            /**
+             * Update complaint status
+             */
+            static async updateComplaintStatus() {
+                const complaintId = document.getElementById('complaintId').value;
+                const status = document.getElementById('actionStatus').value;
+                const notes = document.getElementById('actionNotes').value;
+                const officerAssigned = document.getElementById('officerAssigned').value;
+
+                if (!complaintId) {
+                    showAlert('Please enter a Complaint ID', 'error');
+                    return;
+                }
+
+                try {
+                    const result = await ApiService.updateComplaintStatus(complaintId, status, notes, officerAssigned);
+                    
+                    if (result.success) {
+                        showAlert(`Complaint ${complaintId} status updated to ${status}`, 'success');
+                        
+                        // Clear the form
+                        document.getElementById('complaintActionForm').reset();
+                        
+                        // Refresh the complaints table
+                        DashboardManager.loadDashboardData();
+                    } else {
+                        showAlert('Error updating complaint: ' + result.error, 'error');
+                    }
+                    
+                } catch (error) {
+                    showAlert('Error updating complaint: ' + error.message, 'error');
+                }
+            }
+
+            /**
+             * View complaint details
+             * @param {string} complaintId - Complaint ID
+             */
+            static viewComplaint(complaintId) {
+                // This would open a detailed view of the complaint
+                // For now, we'll just populate the form
+                document.getElementById('complaintId').value = complaintId;
+                showAlert(`Viewing complaint: ${complaintId}. Use the form to update status.`, 'info');
+            }
+
+            /**
+             * Send notification to citizen
+             */
+            static sendNotification() {
+                const complaintId = document.getElementById('complaintId').value;
+                if (complaintId) {
+                    showAlert(`Notification sent to citizen for complaint ${complaintId}`, 'success');
+                } else {
+                    showAlert('Please enter a Complaint ID', 'error');
+                }
+            }
+        }
+        
+        // ===== INITIALIZATION FUNCTIONS =====
+        
+        /**
+         * Initialize the application
+         */
+        function initializeApp() {
+            // Hide global loader after a short delay
+            setTimeout(() => {
+                document.getElementById('globalLoader').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('globalLoader').style.display = 'none';
+                }, 500);
+            }, 1500);
+            
+            // Check for stored authentication
+            if (AuthManager.checkStoredAuth()) {
+                showDashboard();
+            }
+            
+            // Setup event listeners
+            setupEventListeners();
+        }
+        
+        /**
+         * Setup all event listeners
+         */
+        function setupEventListeners() {
+            // Authentication
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('logoutBtn').addEventListener('click', AuthManager.logout);
+
+            // Complaint management
+            document.getElementById('complaintActionForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                ComplaintManager.updateComplaintStatus();
+            });
+            document.getElementById('sendNotification').addEventListener('click', ComplaintManager.sendNotification);
+
+            // Region filters
+            document.querySelectorAll('[data-region]').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('[data-region]').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    // In real implementation, this would filter the map and table data
+                    showAlert(`Filtering data for: ${this.textContent}`, 'info');
+                });
+            });
+
+            // Policy search and filter
+            document.getElementById('policySearch').addEventListener('input', filterPolicies);
+            document.getElementById('regionFilter').addEventListener('change', filterPolicies);
+
+            // Intervention timeframe toggles
+            document.querySelectorAll('input[name="interventionTimeframe"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    // In real implementation, this would update the intervention chart data
+                    showAlert(`Showing ${this.nextElementSibling.textContent} intervention data`, 'info');
+                });
+            });
+        }
+        
+        // ===== EVENT HANDLERS =====
+        
+        /**
+         * Handle login form submission
+         * @param {Event} e - Form submission event
+         */
+        async function handleLogin(e) {
+            e.preventDefault();
+            const departmentId = document.getElementById('departmentId').value;
+            const password = document.getElementById('password').value;
+            
+            showLoading('login-spinner');
+            
+            const result = await AuthManager.login(departmentId, password);
+            
+            hideLoading('login-spinner');
+            
+            if (result.success) {
+                showDashboard();
+                showAlert('Access granted to Policy Dashboard', 'success');
+            } else {
+                showAlert('Access denied: ' + result.error, 'error');
+            }
+        }
+        
+        /**
+         * Show dashboard and initialize components
+         */
+        function showDashboard() {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('dashboard-section').style.display = 'block';
+            
+            // Update user department display
+            if (currentUser) {
+                document.getElementById('departmentName').textContent = currentUser.full_name || currentUser.username;
+            }
+            
+            // Load initial data
+            loadDashboardData();
+            
+            // Initialize charts
+            DashboardManager.initializeInterventionChart();
+            
+            // Start auto-refresh (every 5 minutes)
+            dashboardRefreshInterval = setInterval(loadDashboardData, 300000);
+        }
+        
+        /**
+         * Filter policies based on search and region
+         */
+        function filterPolicies() {
+            const searchTerm = document.getElementById('policySearch').value.toLowerCase();
+            const regionFilter = document.getElementById('regionFilter').value;
+            
+            // In real implementation, this would filter the policy recommendations
+            // For now, we'll just show a message
+            if (searchTerm || regionFilter !== 'all') {
+                showAlert(`Filtering policies: "${searchTerm}" in ${regionFilter}`, 'info');
+            }
+        }
+        
+        /**
+         * Load dashboard data
+         */
+        function loadDashboardData() {
+            DashboardManager.loadDashboardData();
+        }
+        
+        // ===== INITIALIZE APPLICATION WHEN DOM IS LOADED =====
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
